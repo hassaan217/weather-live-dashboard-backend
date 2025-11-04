@@ -1,29 +1,35 @@
+# app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import weather
 from app.db.database import connect_to_mongo, close_mongo_connection
+from app.routers import weather
 
-app = FastAPI(title="Weather Insight Dashboard API")
+app = FastAPI(title="Weather Insight Dashboard")
 
-# ✅ CORS Setup
-origins = [
-    "http://localhost:5173",  # for local dev
-    "https://weather-live-dashboard.vercel.app",  # your frontend deployment
-]
-
+# ✅ CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:5173",          # for local dev
+        "https://weather-live-dashboard.vercel.app",  # your deployed frontend
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.add_event_handler("startup", connect_to_mongo)
-app.add_event_handler("shutdown", close_mongo_connection)
+# Startup and shutdown
+@app.on_event("startup")
+async def startup_db_client():
+    await connect_to_mongo()
 
-app.include_router(weather.router, prefix="/api", tags=["weather"])
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    await close_mongo_connection()
+
+# Routers
+app.include_router(weather.router, prefix="/api")
 
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to Weather Insight Dashboard API"}
+def home():
+    return {"message": "Weather API running"}
